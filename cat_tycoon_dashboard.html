@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CAT Tycoon - Painel de Operações</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&family=Oswald:wght@700;900&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --cat-yellow: #FFB200;
+            --cat-black: #111111;
+            --cat-gray: #2D2D2D;
+            --cat-light-gray: #E0E0E0;
+            --cat-white: #F4F6F8;
+            --cat-red: #D32F2F;
+            --cat-green: #2E7D32;
+        }
+        
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--cat-white);
+            color: var(--cat-black);
+            line-height: 1.6;
+        }
+
+        h1, h2, h3 { font-family: 'Oswald', sans-serif; text-transform: uppercase; margin-top: 0; }
+        .mono-text { font-family: 'JetBrains Mono', monospace; font-weight: 700; }
+
+        /* HEADER / TELEMETRY DASHBOARD */
+        header {
+            background-color: var(--cat-black);
+            color: var(--cat-white);
+            padding: 20px;
+            border-bottom: 8px solid var(--cat-yellow);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 20px;
+        }
+
+        .brand-title { font-size: 2rem; color: var(--cat-yellow); margin: 0; letter-spacing: 1px; }
+
+        .telemetry-stats {
+            display: flex;
+            gap: 20px;
+        }
+
+        .stat-box {
+            background-color: var(--cat-gray);
+            border: 2px solid var(--cat-light-gray);
+            padding: 10px 20px;
+            border-radius: 2px;
+            text-align: right;
+            min-width: 150px;
+        }
+
+        .stat-box span { display: block; font-size: 0.8rem; text-transform: uppercase; color: #A0A0A0; }
+        .stat-box strong { font-size: 1.5rem; color: var(--cat-yellow); }
+
+        /* MAIN CONTAINER */
+        .container {
+            max-width: 1200px;
+            margin: 40px auto;
+            padding: 0 20px;
+            display: grid;
+            gap: 40px;
+        }
+
+        .section-title {
+            font-size: 1.8rem;
+            border-bottom: 4px solid var(--cat-black);
+            display: inline-block;
+            margin-bottom: 20px;
+            padding-bottom: 5px;
+        }
+
+        /* GRID FOR CARDS */
+        .grid-cards {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+            gap: 25px;
+        }
+
+        /* CARD STYLE (BRUTALIST) */
+        .machine-card {
+            background: #ffffff;
+            border: 2px solid var(--cat-black);
+            border-radius: 2px;
+            box-shadow: 6px 6px 0px 0px var(--cat-black);
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+        }
+
+        .status-badge {
+            position: absolute;
+            top: -2px;
+            right: -2px;
+            background-color: var(--cat-green);
+            color: white;
+            font-size: 0.75rem;
+            font-family: 'JetBrains Mono', monospace;
+            padding: 4px 10px;
+            border: 2px solid var(--cat-black);
+            text-transform: uppercase;
+            font-weight: bold;
+        }
+
+        .status-badge.parada { background-color: var(--cat-red); }
+
+        .machine-card h3 { font-size: 1.5rem; margin-bottom: 5px; }
+        .machine-tier { font-size: 0.85rem; color: var(--cat-gray); margin-bottom: 15px; text-transform: uppercase; font-weight: bold; }
+
+        /* DATA ROW */
+        .data-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 10px;
+            font-size: 0.9rem;
+            border-bottom: 1px dashed var(--cat-light-gray);
+            padding-bottom: 5px;
+        }
+
+        /* PROGRESS BAR */
+        .progress-container {
+            margin: 20px 0;
+            background-color: var(--cat-gray);
+            border: 2px solid var(--cat-black);
+            height: 30px;
+            position: relative;
+        }
+
+        .progress-fill {
+            background-color: var(--cat-yellow);
+            height: 100%;
+            width: 75%; /* Exemplo */
+            transition: width 0.5s ease;
+        }
+
+        .progress-text {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.85rem;
+            font-weight: bold;
+            color: var(--cat-white);
+            mix-blend-mode: difference;
+        }
+
+        /* BUTTONS */
+        .btn {
+            display: block;
+            width: 100%;
+            text-align: center;
+            font-family: 'Inter', sans-serif;
+            font-weight: 700;
+            padding: 12px;
+            text-decoration: none;
+            cursor: pointer;
+            text-transform: uppercase;
+            border: 2px solid var(--cat-black);
+            border-radius: 2px;
+            font-size: 1rem;
+            transition: transform 0.1s, box-shadow 0.1s, background-color 0.2s;
+        }
+
+        .btn-primary {
+            background-color: var(--cat-yellow);
+            color: var(--cat-black);
+            box-shadow: 4px 4px 0px 0px var(--cat-black);
+        }
+
+        .btn-primary:active {
+            transform: translate(4px, 4px);
+            box-shadow: 0px 0px 0px 0px var(--cat-black);
+        }
+
+        .btn-primary:disabled {
+            background-color: var(--cat-light-gray);
+            color: #888;
+            cursor: not-allowed;
+            box-shadow: 4px 4px 0px 0px var(--cat-gray);
+        }
+
+        /* REFERRAL SECTION */
+        .referral-box {
+            background-color: var(--cat-black);
+            color: var(--cat-white);
+            padding: 30px;
+            border: 2px solid var(--cat-black);
+            box-shadow: 8px 8px 0px 0px var(--cat-yellow);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 20px;
+        }
+
+        .ref-link-container {
+            display: flex;
+            background-color: var(--cat-gray);
+            border: 2px solid var(--cat-white);
+            padding: 5px;
+            flex-grow: 1;
+            max-width: 600px;
+        }
+
+        .ref-link-container input {
+            flex-grow: 1;
+            background: transparent;
+            border: none;
+            color: var(--cat-yellow);
+            font-family: 'JetBrains Mono', monospace;
+            padding: 10px;
+            font-size: 1rem;
+            outline: none;
+        }
+
+        .btn-copy {
+            background-color: var(--cat-white);
+            color: var(--cat-black);
+            border: 2px solid var(--cat-white);
+            padding: 10px 20px;
+            font-weight: bold;
+            cursor: pointer;
+            text-transform: uppercase;
+        }
+        
+        .btn-copy:active { background-color: var(--cat-yellow); }
+
+    </style>
+</head>
+<body>
+
+    <!-- PAINEL SUPERIOR (TELEMETRIA) -->
+    <header>
+        <h1 class="brand-title">CAT OPERATIONS</h1>
+        <div class="telemetry-stats">
+            <div class="stat-box">
+                <span>Nível Operacional</span>
+                <strong class="mono-text">LVL 14</strong>
+            </div>
+            <div class="stat-box">
+                <span>Saldo (CAT Coins)</span>
+                <strong class="mono-text">14,500.00</strong>
+            </div>
+            <div class="stat-box">
+                <span>Produção / Hora</span>
+                <strong class="mono-text" style="color: #4CAF50;">+250.00</strong>
+            </div>
+        </div>
+    </header>
+
+    <div class="container">
+
+        <!-- GARAGEM (MÁQUINAS ATIVAS) -->
+        <section>
+            <h2 class="section-title">Painel de Coleta (Garagem)</h2>
+            <div class="grid-cards">
+                
+                <!-- Máquina 1: Pronta para coleta -->
+                <div class="machine-card">
+                    <div class="status-badge">Concluído</div>
+                    <h3>Escavadeira 320</h3>
+                    <div class="machine-tier">Tier 1 - Mineração Base</div>
+                    
+                    <div class="data-row">
+                        <span>XP Gerado:</span>
+                        <span class="mono-text">1,200 XP</span>
+                    </div>
+                    <div class="data-row">
+                        <span>Moedas Geradas:</span>
+                        <span class="mono-text">150 CAT</span>
+                    </div>
+
+                    <div class="progress-container">
+                        <div class="progress-fill" style="width: 100%; background-color: var(--cat-green);"></div>
+                        <div class="progress-text">100% - PRONTO</div>
+                    </div>
+
+                    <button class="btn btn-primary" onclick="alert('Coletado com sucesso!')">Coletar Produção</button>
+                </div>
+
+                <!-- Máquina 2: Operando -->
+                <div class="machine-card">
+                    <div class="status-badge" style="background-color: var(--cat-yellow); color: black;">Operando</div>
+                    <h3>Trator D8T</h3>
+                    <div class="machine-tier">Tier 2 - Terraplanagem Pesada</div>
+                    
+                    <div class="data-row">
+                        <span>Taxa de XP:</span>
+                        <span class="mono-text">45 / hora</span>
+                    </div>
+                    <div class="data-row">
+                        <span>Tempo Restante:</span>
+                        <span class="mono-text" id="timer-d8t">04:12:30</span>
+                    </div>
+
+                    <div class="progress-container">
+                        <div class="progress-fill" style="width: 65%;"></div>
+                        <div class="progress-text">65%</div>
+                    </div>
+
+                    <button class="btn btn-primary" disabled>Aguardando...</button>
+                </div>
+
+            </div>
+        </section>
+
+        <!-- LOJA DE ALUGUEL -->
+        <section>
+            <h2 class="section-title">Aquisição de Contratos (Loja)</h2>
+            <div class="grid-cards">
+                
+                <!-- Máquina Nova para Alugar -->
+                <div class="machine-card" style="background-color: var(--cat-white);">
+                    <h3>Caminhão 797F</h3>
+                    <div class="machine-tier">Tier 3 - Extração Massiva</div>
+                    
+                    <div class="data-row">
+                        <span>Custo de Contrato (30 dias):</span>
+                        <span class="mono-text" style="color: var(--cat-red);">5,000 CAT</span>
+                    </div>
+                    <div class="data-row">
+                        <span>Retorno Diário Estimado:</span>
+                        <span class="mono-text" style="color: var(--cat-green);">+350 CAT</span>
+                    </div>
+                    <div class="data-row">
+                        <span>Bônus de XP:</span>
+                        <span class="mono-text">+20%</span>
+                    </div>
+
+                    <div style="margin-top: 20px;"></div>
+                    <button class="btn btn-primary" style="background-color: var(--cat-black); color: var(--cat-yellow);">Assinar Contrato</button>
+                </div>
+
+            </div>
+        </section>
+
+        <!-- SISTEMA DE INDICAÇÃO -->
+        <section>
+            <h2 class="section-title">Programa de Indicação</h2>
+            <div class="referral-box">
+                <div>
+                    <h3 style="color: var(--cat-yellow); margin-bottom: 5px;">Recrute Operadores</h3>
+                    <p style="font-size: 0.9rem;">Receba 5% de bônus sobre a produção diária de todas as máquinas alugadas pela sua equipe.</p>
+                    <div class="mono-text" style="margin-top: 10px; color: #A0A0A0;">Recrutados Ativos: 12</div>
+                </div>
+                
+                <div class="ref-link-container">
+                    <input type="text" id="refLink" value="https://cat-tycoon.app/ref/M4T3U5" readonly>
+                    <button class="btn-copy" onclick="copyRef()">Copiar Link</button>
+                </div>
+            </div>
+        </section>
+
+    </div>
+
+    <script>
+        // Simulador de contagem regressiva e cópia de link para demonstrar a interatividade
+        function copyRef() {
+            var copyText = document.getElementById("refLink");
+            copyText.select();
+            document.execCommand("copy");
+            alert("Link de indicação copiado para a área de transferência!");
+        }
+
+        // Simula a passagem do tempo para o Trator D8T
+        let timeRemaining = 4 * 3600 + 12 * 60 + 30; // 04:12:30 em segundos
+        setInterval(() => {
+            if(timeRemaining > 0) timeRemaining--;
+            let h = Math.floor(timeRemaining / 3600).toString().padStart(2, '0');
+            let m = Math.floor((timeRemaining % 3600) / 60).toString().padStart(2, '0');
+            let s = (timeRemaining % 60).toString().padStart(2, '0');
+            document.getElementById('timer-d8t').innerText = `${h}:${m}:${s}`;
+        }, 1000);
+    </script>
+</body>
+</html>

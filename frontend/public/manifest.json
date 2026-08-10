@@ -1,0 +1,18 @@
+{
+  "name": "CatBrasil · Central Operacional de Frotas",
+  "short_name": "CatBrasil",
+  "description": "Plataforma de mineração e gestão de frotas pesadas Caterpillar no Brasil.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#111111",
+  "theme_color": "#ffb200",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "192x192 512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>CAT Tycoon - Mobile</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&family=Oswald:wght@700;900&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --cat-yellow: #FFB200;
+            --cat-black: #111111;
+            --cat-gray: #2D2D2D;
+            --cat-light-gray: #E0E0E0;
+            --cat-white: #F4F6F8;
+            --cat-red: #D32F2F;
+            --cat-green: #2E7D32;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--cat-black); /* Fundo escuro para mobile imersivo */
+            color: var(--cat-white);
+            line-height: 1.5;
+            display: flex;
+            justify-content: center;
+        }
+
+        /* Simulação de App Mobile */
+        .app-container {
+            width: 100%;
+            max-width: 480px; /* Limite para não estourar no desktop */
+            background-color: var(--cat-white);
+            color: var(--cat-black);
+            min-height: 100vh;
+            position: relative;
+            box-shadow: 0 0 20px rgba(0,0,0,0.5);
+            display: flex;
+            flex-direction: column;
+        }
+
+        h1, h2, h3 { font-family: 'Oswald', sans-serif; text-transform: uppercase; }
+        .mono-text { font-family: 'JetBrains Mono', monospace; font-weight: 700; }
+
+        /* HEADER (Fixo) */
+        header {
+            position: sticky;
+            top: 0;
+            background-color: var(--cat-black);
+            color: var(--cat-white);
+            padding: 15px 20px;
+            z-index: 100;
+            border-bottom: 4px solid var(--cat-yellow);
+        }
+
+        .header-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+        .user-level { background-color: var(--cat-gray); padding: 4px 8px; border-radius: 2px; font-size: 0.8rem; border: 1px solid var(--cat-yellow); }
+        .balance { text-align: right; }
+        .balance span { font-size: 0.7rem; color: #A0A0A0; text-transform: uppercase; display: block; }
+        .balance strong { font-size: 1.4rem; color: var(--cat-yellow); }
+
+        /* XP Bar */
+        .xp-bar-bg { background-color: var(--cat-gray); height: 6px; width: 100%; margin-top: 5px; border-radius: 3px; overflow: hidden; }
+        .xp-bar-fill { background-color: var(--cat-yellow); height: 100%; width: 40%; }
+
+        /* CONTENT AREA */
+        .content {
+            flex-grow: 1;
+            padding: 20px;
+            padding-bottom: 90px; /* Espaço para o bottom nav */
+            overflow-y: auto;
+        }
+
+        .section-title { font-size: 1.4rem; border-bottom: 3px solid var(--cat-black); padding-bottom: 5px; margin-bottom: 15px; }
+
+        /* CARDS GERAIS */
+        .card {
+            background: #ffffff;
+            border: 2px solid var(--cat-black);
+            border-radius: 4px;
+            box-shadow: 4px 4px 0px 0px var(--cat-black);
+            margin-bottom: 20px;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .card-img {
+            width: 100%;
+            height: 140px;
+            background-color: var(--cat-gray);
+            background-size: cover;
+            background-position: center;
+            border-bottom: 2px solid var(--cat-black);
+            position: relative;
+        }
+
+        .card-img::after {
+            content: '';
+            position: absolute;
+            bottom: 0; left: 0; right: 0;
+            height: 40px;
+            background: linear-gradient(to top, rgba(0,0,0,0.8), transparent);
+        }
+
+        .card-body { padding: 15px; }
+        .card-title { font-size: 1.3rem; margin-bottom: 5px; }
+        
+        .badge-limit {
+            position: absolute;
+            top: 10px; right: 10px;
+            background: var(--cat-black);
+            color: var(--cat-yellow);
+            padding: 4px 8px;
+            font-size: 0.75rem;
+            font-weight: bold;
+            border: 2px solid var(--cat-yellow);
+        }
+
+        .data-row { display: flex; justify-content: space-between; font-size: 0.85rem; margin-bottom: 6px; border-bottom: 1px dashed var(--cat-light-gray); padding-bottom: 4px; }
+        .highlight-green { color: var(--cat-green); font-weight: bold; }
+        .highlight-red { color: var(--cat-red); font-weight: bold; }
+
+        /* ALERTAS / LOSS WARNING */
+        .alert-box {
+            background-color: #FFF3CD;
+            border-left: 4px solid var(--cat-red);
+            padding: 10px;
+            font-size: 0.8rem;
+            margin-bottom: 15px;
+            color: var(--cat-black);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        /* LOCK UI */
+        .locked-overlay {
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(17, 17, 17, 0.85);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            color: var(--cat-white);
+            z-index: 10;
+            text-align: center;
+            padding: 20px;
+        }
+        .locked-overlay h3 { color: var(--cat-yellow); margin-bottom: 10px; }
+
+        /* BOTOES */
+        .btn {
+            display: block; width: 100%; text-align: center;
+            font-family: 'Inter', sans-serif; font-weight: 700;
+            padding: 12px; border: 2px solid var(--cat-black); border-radius: 2px;
+            font-size: 1rem; text-transform: uppercase; cursor: pointer;
+            margin-top: 10px;
+        }
+        .btn-primary { background-color: var(--cat-yellow); color: var(--cat-black); box-shadow: 3px 3px 0px 0px var(--cat-black); }
+        .btn-primary:active { transform: translate(3px, 3px); box-shadow: 0px 0px 0px 0px var(--cat-black); }
+        .btn-disabled { background-color: var(--cat-light-gray); color: #888; box-shadow: none; cursor: not-allowed; }
+
+        /* BOTTOM NAV */
+        .bottom-nav {
+            position: fixed;
+            bottom: 0; width: 100%; max-width: 480px;
+            background-color: var(--cat-black);
+            display: flex; justify-content: space-around;
+            border-top: 2px solid var(--cat-yellow);
+            z-index: 100;
+            padding-bottom: env(safe-area-inset-bottom); /* iOS safe area */
+        }
+
+        .nav-item {
+            flex: 1; text-align: center; padding: 15px 0;
+            color: #888; font-size: 0.7rem; text-transform: uppercase;
+            font-family: 'Oswald', sans-serif; cursor: pointer;
+            transition: color 0.2s;
+        }
+        .nav-item.active { color: var(--cat-yellow); font-weight: bold; background: rgba(255, 178, 0, 0.1); }
+        .nav-icon { display: block; font-size: 1.4rem; margin-bottom: 4px; }
+
+        /* TABS */
+        .tab-content { display: none; }
+        .tab-content.active { display: block; animation: fadeIn 0.3s ease; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+        /* PROGRESS BAR INLINE */
+        .prog-inline { height: 8px; background: var(--cat-light-gray); margin: 8px 0; border: 1px solid var(--cat-black); border-radius: 4px; overflow: hidden; }
+        .prog-inline-fill { height: 100%; background: var(--cat-green); width: 100%; }
+
+    </style>
+</head>
+<body>
+
+    <div class="app-container">
+        
+        <!-- HEADER -->
+        <header>
+            <div class="header-top">
+                <div class="user-info">
+                    <div class="user-level mono-text">LVL 12 - Operador</div>
+                </div>
+                <div class="balance">
+                    <span>Saldo Disponível</span>
+                    <strong class="mono-text">1,250.00 CAT</strong>
+                </div>
+            </div>
+            <div class="xp-bar-bg"><div class="xp-bar-fill"></div></div>
+            <div style="font-size: 0.65rem; color: #A0A0A0; margin-top: 4px; text-align: right;">450 / 1000 XP</div>
+        </header>
+
+        <!-- CONTENT -->
+        <main class="content">
+
+            <!-- TAB 1: GARAGEM (Dashboard Diário) -->
+            <div id="tab-garagem" class="tab-content active">
+                <h2 class="section-title">Minha Frota</h2>
+                
+                <div class="alert-box">
+                    <strong>⚠️ AVISO:</strong> Você tem produções pendentes. Colete antes da meia-noite ou a produção de hoje será perdida permanentemente!
+                </div>
+
+                <!-- Maquina Ativa -->
+                <div class="card">
+                    <div class="card-img" style="background-image: url('https://images.unsplash.com/photo-1579912440868-21d3f6d713c7?w=400&q=80');"></div>
+                    <div class="card-body">
+                        <h3 class="card-title">Escavadeira CAT 320</h3>
+                        
+                        <div class="data-row">
+                            <span>Produção de Hoje:</span>
+                            <span class="mono-text highlight-green">+ 110 CAT</span>
+                        </div>
+                        <div class="data-row">
+                            <span>Status:</span>
+                            <span class="mono-text" style="color: var(--cat-red);">Aguardando Coleta</span>
+                        </div>
+                        <div class="data-row">
+                            <span>Tempo p/ Expirar:</span>
+                            <span class="mono-text">04:15:30</span>
+                        </div>
+
+                        <div class="prog-inline"><div class="prog-inline-fill"></div></div>
+
+                        <button class="btn btn-primary">Coletar Agora</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TAB 2: LOJA (Mercado de Máquinas) -->
+            <div id="tab-loja" class="tab-content">
+                <h2 class="section-title">Mercado de Máquinas</h2>
+                <p style="font-size: 0.8rem; margin-bottom: 15px;">Alugue máquinas por 30 dias. Retorno médio de <strong>10% (ROI)</strong>.</p>
+
+                <!-- Máquina Básica (Atingiu Limite) -->
+                <div class="card">
+                    <div class="badge-limit">Lim: 2/2 MAX</div>
+                    <div class="card-img" style="background-image: url('https://images.unsplash.com/photo-1504307651254-35680f35aa9e?w=400&q=80'); filter: grayscale(100%);"></div>
+                    <div class="card-body">
+                        <h3 class="card-title">Mini Carregadeira 236D3</h3>
+                        <div class="data-row"><span>Custo de Contrato:</span><span class="mono-text">1,000 CAT</span></div>
+                        <div class="data-row"><span>Retorno Total (30d):</span><span class="mono-text highlight-green">1,100 CAT</span></div>
+                        <div class="data-row"><span>Rendimento Diário:</span><span class="mono-text">~36.6 CAT</span></div>
+                        
+                        <button class="btn btn-disabled">Limite Atingido</button>
+                    </div>
+                </div>
+
+                <!-- Máquina Média -->
+                <div class="card">
+                    <div class="badge-limit">Lim: 0/1</div>
+                    <div class="card-img" style="background-image: url('https://images.unsplash.com/photo-1621932953936-056b1b4d0eb0?w=400&q=80');"></div>
+                    <div class="card-body">
+                        <h3 class="card-title">Trator de Esteira D8T</h3>
+                        <div class="data-row"><span>Custo de Contrato:</span><span class="mono-text">10,000 CAT</span></div>
+                        <div class="data-row"><span>Retorno Total (30d):</span><span class="mono-text highlight-green">11,000 CAT</span></div>
+                        <div class="data-row"><span>Rendimento Diário:</span><span class="mono-text">~366.6 CAT</span></div>
+                        
+                        <button class="btn btn-primary">Alugar Máquina</button>
+                    </div>
+                </div>
+
+                <!-- Máquina Alta (Bloqueada por Nível) -->
+                <div class="card">
+                    <div class="locked-overlay">
+                        <h3>🔒 BLOQUEADO</h3>
+                        <p style="font-size: 0.85rem;">Requer Nível 20</p>
+                    </div>
+                    <div class="card-img" style="background-image: url('https://images.unsplash.com/photo-1581091226825-a6a2a5aee158?w=400&q=80');"></div>
+                    <div class="card-body">
+                        <h3 class="card-title">Caminhão 797F Massivo</h3>
+                        <div class="data-row"><span>Custo de Contrato:</span><span class="mono-text">50,000 CAT</span></div>
+                        <div class="data-row"><span>Retorno Total (30d):</span><span class="mono-text highlight-green">55,000 CAT</span></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TAB 3: SAQUE E EQUIPE (Travas) -->
+            <div id="tab-carteira" class="tab-content">
+                <h2 class="section-title">Financeiro & Equipe</h2>
+
+                <!-- Trava de Saque -->
+                <div class="card" style="border-color: var(--cat-red);">
+                    <div class="card-body">
+                        <h3 class="card-title" style="color: var(--cat-red); display:flex; align-items:center; gap: 5px;">
+                            <span>🔒</span> Limite de Saque Free
+                        </h3>
+                        <p style="font-size: 0.85rem; margin-bottom: 10px;">Você atingiu o limite de saques gratuitos. Para continuar sacando, você precisa recrutar novos operadores ativos.</p>
+                        
+                        <div class="data-row">
+                            <span>Status de Saque Livre:</span>
+                            <span class="mono-text highlight-red">400 / 400 CAT</span>
+                        </div>
+                        <div class="data-row">
+                            <span>Indicados Ativos (Com máquina):</span>
+                            <span class="mono-text highlight-red">0 / 1</span>
+                        </div>
+
+                        <div style="background: var(--cat-black); color: var(--cat-white); padding: 15px; margin-top: 15px; text-align: center; border-radius: 4px;">
+                            <p style="font-size: 0.8rem; margin-bottom: 10px; color: var(--cat-yellow);">Seu Link de Recrutamento:</p>
+                            <input type="text" value="https://cat-tycoon.app/ref/M4T3U5" readonly style="width: 100%; padding: 8px; font-family: 'JetBrains Mono', monospace; background: var(--cat-gray); color: var(--cat-white); border: 1px solid var(--cat-light-gray); text-align: center; margin-bottom: 10px;">
+                            <button class="btn btn-primary" style="padding: 8px; font-size: 0.9rem;">Copiar Link</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-body">
+                        <h3 class="card-title">Roleta de Eventos Diária</h3>
+                        <p style="font-size: 0.85rem; margin-bottom: 10px;">Gire a roleta e concorra a bônus de XP, reduções de tempo e moedas CAT extras!</p>
+                        <button class="btn btn-primary" style="background: linear-gradient(90deg, #FFB200, #FFD54F); border-color: var(--cat-black);">🎡 Girar Roleta Grátis (1/1)</button>
+                    </div>
+                </div>
+
+            </div>
+
+        </main>
+
+        <!-- BOTTOM NAV -->
+        <nav class="bottom-nav">
+            <div class="nav-item active" onclick="switchTab('tab-garagem', this)">
+                <span class="nav-icon">🚜</span>
+                Garagem
+            </div>
+            <div class="nav-item" onclick="switchTab('tab-loja', this)">
+                <span class="nav-icon">🛒</span>
+                Mercado
+            </div>
+            <div class="nav-item" onclick="switchTab('tab-carteira', this)">
+                <span class="nav-icon">💸</span>
+                Finanças
+            </div>
+        </nav>
+
+    </div>
+
+    <script>
+        function switchTab(tabId, element) {
+            // Ocultar todas as tabs
+            document.querySelectorAll('.tab-content').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            // Mostrar a selecionada
+            document.getElementById(tabId).classList.add('active');
+            
+            // Atualizar navegação
+            document.querySelectorAll('.nav-item').forEach(nav => {
+                nav.classList.remove('active');
+            });
+            element.classList.add('active');
+            
+            // Voltar o scroll pro topo
+            document.querySelector('.content').scrollTo(0, 0);
+        }
+    </script>
+</body>
+</html>

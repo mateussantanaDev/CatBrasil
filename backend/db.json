@@ -1,0 +1,232 @@
+{
+  "users": [
+    {
+      "id": "CAT-458F",
+      "username": "mateus",
+      "password": "admin",
+      "balance": 2095,
+      "xp": 247,
+      "nivel": 8,
+      "securityPassword": "123456",
+      "promoUnlocked": false,
+      "freeWithdrawActive": false,
+      "coletasCompleted": 4,
+      "tratorRented": false,
+      "createdAt": "2026-07-20T21:53:37.031Z",
+      "alreadySpunToday": true
+    },
+    {
+      "id": "CB-6769",
+      "balance": 0,
+      "xp": 0,
+      "nivel": 1,
+      "securityPassword": "",
+      "promoUnlocked": false,
+      "freeWithdrawActive": false,
+      "coletasCompleted": 0,
+      "tratorRented": false,
+      "createdAt": "2026-07-20T22:06:13.437Z",
+      "username": "index1_art",
+      "password": "$2b$10$FKEzn0zDpmyBjE23s6NsH.CcKEWnh51X6jss8HQSajVLsAKw.AKVq"
+    }
+  ],
+  "machines": [
+    {
+      "id": "mach-1",
+      "userId": "CAT-458F",
+      "name": "Escavadeira CAT 320",
+      "cost": 2500,
+      "yieldAmount": 110,
+      "lastCollectedAt": "2026-07-19T21:59:37.031Z",
+      "state": "aguardando"
+    },
+    {
+      "id": "mach-1784585173437-977",
+      "userId": "CB-6769",
+      "name": "Escavadeira CAT 320",
+      "cost": 2500,
+      "yieldAmount": 110,
+      "lastCollectedAt": "2026-07-19T22:06:13.437Z",
+      "state": "disponivel"
+    },
+    {
+      "id": "mach-1786194257856-405",
+      "userId": "CAT-458F",
+      "name": "Pá Carregadeira CAT 966M",
+      "cost": 350,
+      "yieldAmount": 60,
+      "lastCollectedAt": "2026-08-08T13:04:17.856Z",
+      "state": "aguardando"
+    }
+  ],
+  "referrals": [
+    {
+      "id": "ref-1",
+      "referrerId": "CAT-458F",
+      "nome": "João Silva",
+      "status": "ativo",
+      "deposito": 500,
+      "data": "18/07/2026"
+    },
+    {
+      "id": "ref-2",
+      "referrerId": "CAT-458F",
+      "nome": "Maria Oliveira",
+      "status": "ativo",
+      "deposito": 350,
+      "data": "19/07/2026"
+    },
+    {
+      "id": "ref-3",
+      "referrerId": "CAT-458F",
+      "nome": "Carlos Pereira",
+      "status": "ativo",
+      "deposito": 1200,
+      "data": "20/07/2026"
+    }
+  ],
+  "transactions": [
+    {
+      "id": "tx-1786197181841-917",
+      "data": "08/08/2026",
+      "userId": "CAT-458F",
+      "tipo": "Giro Roleta: R$ 20",
+      "valor": 20,
+      "status": "sucesso"
+    },
+    {
+      "id": "WDR-1786196723985-9396",
+      "data": "08/08/2026",
+      "userId": "CAT-458F",
+      "tipo": "Saque PIX",
+      "valor": -100,
+      "status": "pendente",
+      "pixKey": "11999999999",
+      "netAmount": 95,
+      "feeAmount": 5,
+      "createdAt": "2026-08-08T13:45:23.985Z"
+    },
+    {
+      "id": "PIX-1786196659165-3174",
+      "data": "08/08/2026",
+      "userId": "CAT-458F",
+      "tipo": "Depósito PIX",
+      "valor": 1000,
+      "status": "sucesso",
+      "externalId": "GW-PIX-1786196659165-3174",
+      "createdAt": "2026-08-08T13:44:19.165Z",
+      "valorEfetivoPago": 45,
+      "paidAt": "2026-08-08T13:44:35.867Z"
+    },
+    {
+      "id": "PIX-1786196532911-5186",
+      "data": "08/08/2026",
+      "userId": "CAT-458F",
+      "tipo": "Depósito PIX",
+      "valor": 500,
+      "status": "sucesso",
+      "externalId": "GW-PIX-1786196532911-5186",
+      "createdAt": "2026-08-08T13:42:12.911Z",
+      "valorEfetivoPago": 30,
+      "paidAt": "2026-08-08T13:42:54.331Z"
+    },
+    {
+      "id": "tx-1786194299903-257",
+      "data": "08/08/2026",
+      "userId": "CAT-458F",
+      "tipo": "Depósito PIX",
+      "valor": 30000,
+      "status": "pendente"
+    },
+    {
+      "id": "tx-1786194257856-112",
+      "data": "08/08/2026",
+      "userId": "CAT-458F",
+      "tipo": "Aluguel Pá Carregadeira CAT 966M",
+      "valor": -350,
+      "status": "sucesso"
+    },
+    {
+      "id": "tx-1",
+      "userId": "CAT-458F",
+      "data": "20/07/2026",
+      "tipo": "Depósito",
+      "valor": 300,
+      "status": "sucesso"
+    },
+    {
+      "id": "tx-2",
+      "userId": "CAT-458F",
+      "data": "18/07/2026",
+      "tipo": "Saque",
+      "valor": -150,
+      "status": "sucesso"
+    },
+    {
+      "id": "tx-3",
+      "userId": "CAT-458F",
+      "data": "15/07/2026",
+      "tipo": "Depósito",
+      "valor": 1000,
+      "status": "sucesso"
+    }
+  ],
+  "rouletteLog": [],
+  "usageLogs": [
+    {
+      "type": "roulette_win",
+      "amount": 20,
+      "timestamp": 1786197181854
+    }
+  ],
+  "rouletteConfig": [
+    {
+      "id": 1,
+      "label": "R$ 10",
+      "amount": 10,
+      "probability": 3,
+      "color": "#ffb200",
+      "textColor": "#111"
+    },
+    {
+      "id": 2,
+      "label": "R$ 50",
+      "amount": 50,
+      "probability": 1,
+      "color": "#111111",
+      "textColor": "#fff"
+    },
+    {
+      "id": 3,
+      "label": "R$ 100",
+      "amount": 100,
+      "probability": 0.5,
+      "color": "#2e7d32",
+      "textColor": "#fff"
+    },
+    {
+      "id": 4,
+      "label": "R$ 20",
+      "amount": 20,
+      "probability": 2.5,
+      "color": "#d32f2f",
+      "textColor": "#fff"
+    },
+    {
+      "id": 5,
+      "label": "R$ 500",
+      "amount": 500,
+      "probability": 0.05,
+      "color": "#ffb200",
+      "textColor": "#111"
+    },
+    {
+      "id": 6,
+      "label": "R$ 5",
+      "amount": 5,
+      "probability": 92.95,
+      "color": "#111111",
+      "textColor": "#fff"
+    }
+  ]
+}
