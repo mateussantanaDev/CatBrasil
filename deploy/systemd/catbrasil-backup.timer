@@ -1,0 +1,12 @@
+[Unit]
+Description=Run CatBrasil encrypted remote backup hourly
+
+[Timer]
+OnCalendar=*-*-* *:10:00 UTC
+Persistent=true
+RandomizedDelaySec=0
+Unit=catbrasil-backup.service
+
+[Install]
+WantedBy=timers.target
+

@@ -1,0 +1,128 @@
+# compose.suitpay-sandbox.yml
+# Overlay Docker Compose para o ambiente isolado do Sandbox Oficial SuitPay (P0.5).
+#
+# AVISO CRÍTICO DE IMPLANTAÇÃO / CONFLITO DE PORTAS 80 E 443 NO HOST ATUAL:
+# - Este overlay Docker Compose foi projetado exclusivamente para um HOST DEDICADO
+#   ou requer integração deliberada com roteamento HTTPS externo (ex: proxy reverso externo).
+# - No ambiente atual desta VPS, o container legado 'catbrasil_caddy' JÁ OCUPA as portas 80 e 443
+#   do host (0.0.0.0:80 / 0.0.0.0:443).
+# - NUNCA inicie este compose ('docker compose up') neste host sobre a stack legada em execução,
+#   pois haverá colisão fatal de bind de portas e risco de indisponibilidade dos serviços legados.
+# - Este overlay NÃO está pronto para ser publicado ou iniciado neste host compartilhado.
+# - Operações com este arquivo neste host devem se limitar estritamente à validação estática
+#   de configuração ('docker compose config' ou scripts de validação read-only).
+#
+# Uso seguro (validação read-only de configuração):
+#   python3 scripts/release/validate_suitpay_sandbox_compose.py --env-file .suitpay-sandbox.env
+#
+# Execução (apenas quando autorizado e com DNS público apontando para a VPS dedicada):
+#   docker compose -p catbrasil-suitpay-sandbox --env-file .suitpay-sandbox.env \
+#     -f docker-compose.yml -f compose.suitpay-sandbox.yml config --quiet
+#
+# Regras Estritas de Isolamento e Segurança:
+# 1. Projeto dedicado: 'catbrasil-suitpay-sandbox'
+# 2. Volumes isolados: 'catbrasil_suitpay_sandbox_pgdata', impedindo qualquer contato
+#    com 'catbrasil_pgdata' (legado), 'catbrasil-staging_pgdata' ou 'catbrasil_prod_pgdata'.
+# 3. Rede dedicada: 'catbrasil_suitpay_sandbox_net'.
+# 4. Banco e API NÃO expostos no host (!override []).
+# 5. Frontends NÃO expostos diretamente no host (!override []); acesso exclusivamente via Caddy.
+# 6. Caddy com TLS automático via Let's Encrypt / ZeroSSL para domínios públicos (não localhost).
+#    Exige publicação explícita das portas 80 e 443 no host para terminação TLS e webhooks públicos.
+# 7. PIX_SANDBOX_URL vazio ("") para usar a URL oficial do gateway SuitPay:
+#    https://sandbox.ws.suitpay.app/api/v1/gateway
+# 8. SUITPAY_LIVE_ENABLED travado em "false".
+# 9. Total ausência do serviço stub 'pix-sandbox'.
+# 10. Ausência de gateway SMS no overlay (cadastro e E2E dependem de P0.4 ou fixtures sintéticas;
+#     nunca usar seed de banco legado).
+
+name: catbrasil-suitpay-sandbox
+
+services:
+  postgres:
+    ports: !override []
+    environment:
+      POSTGRES_DB: ${DB_NAME:?Defina DB_NAME}
+      POSTGRES_USER: ${DB_USER:?Defina DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?Defina DB_PASSWORD}
+      TZ: America/Sao_Paulo
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  backend-migrate:
+    environment:
+      DATABASE_URL: ${DATABASE_URL:?Defina DATABASE_URL}
+
+  backend-api:
+    ports: !override []
+    environment:
+      APP_ENV: staging
+      PIX_MODE: suitpay
+      PIX_SANDBOX_URL: ""
+      SUITPAY_LIVE_ENABLED: "false"
+      DATABASE_URL: ${DATABASE_URL:?Defina DATABASE_URL}
+      JWT_SECRET: ${JWT_SECRET:?Defina JWT_SECRET}
+      PIX_WEBHOOK_SECRET: ${PIX_WEBHOOK_SECRET:?Defina PIX_WEBHOOK_SECRET}
+      ADMIN_SECRET_PIN: ${ADMIN_SECRET_PIN:?Defina ADMIN_SECRET_PIN}
+      IDENTITY_SECRET: ${IDENTITY_SECRET:?Defina IDENTITY_SECRET}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:?Defina CORS_ALLOWED_ORIGINS}
+      TRUSTED_PROXY_CIDRS: 172.30.242.2/32
+      SMS_GATEWAY_URL: ${SMS_GATEWAY_URL:-}
+      SMS_GATEWAY_TOKEN: ${SMS_GATEWAY_TOKEN:-}
+      SMS_CODE_SECRET: ${SMS_CODE_SECRET:-}
+      OBSERVABILITY_TOKEN: ${OBSERVABILITY_TOKEN:-}
+      GIN_MODE: release
+      GOMAXPROCS: ${GOMAXPROCS:-2}
+      TZ: America/Sao_Paulo
+
+  backend-cron:
+    environment:
+      DATABASE_URL: ${DATABASE_URL:?Defina DATABASE_URL}
+
+  app-client:
+    ports: !override []
+
+  app-admin:
+    ports: !override []
+
+  caddy:
+    ports: !override
+      - "${HTTP_BIND_ADDRESS:-0.0.0.0}:${HTTP_PORT:-80}:80"
+      - "${HTTPS_BIND_ADDRESS:-0.0.0.0}:${HTTPS_PORT:-443}:443"
+    environment:
+      CLIENT_DOMAIN: ${CLIENT_DOMAIN:?Defina CLIENT_DOMAIN}
+      ADMIN_DOMAIN: ${ADMIN_DOMAIN:?Defina ADMIN_DOMAIN}
+      API_DOMAIN: ${API_DOMAIN:?Defina API_DOMAIN}
+      ACME_EMAIL: ${ACME_EMAIL:?Defina ACME_EMAIL}
+    volumes:
+      - ./docker/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    networks:
+      proxy_net:
+        ipv4_address: 172.30.242.2
+
+  prometheus:
+    ports: !override
+      - "127.0.0.1:${SANDBOX_PROMETHEUS_PORT:-29090}:9090"
+
+volumes:
+  pgdata:
+    name: catbrasil_suitpay_sandbox_pgdata
+  caddy_data:
+    name: catbrasil_suitpay_sandbox_caddy_data
+  caddy_config:
+    name: catbrasil_suitpay_sandbox_caddy_config
+  prometheus_data:
+    name: catbrasil_suitpay_sandbox_prometheus_data
+
+networks:
+  catbrasil_net:
+    name: catbrasil_suitpay_sandbox_net
+  proxy_net:
+    name: catbrasil_suitpay_sandbox_proxy_net
+    ipam:
+      config:
+        - subnet: 172.30.242.0/28

@@ -1,19 +1,24 @@
 {
-  "name": "frontend",
+  "name": "catbrasil-frontend-monorepo",
+  "version": "1.0.0",
   "private": true,
-  "version": "0.0.0",
   "type": "module",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
   "scripts": {
-    "dev": "vite",
-    "build": "vite build",
-    "preview": "vite preview"
+    "dev:client": "npm --workspace=@catbrasil/client run dev",
+    "dev:admin": "npm --workspace=@catbrasil/admin run dev",
+    "build:client": "npm --workspace=@catbrasil/client run build && node scripts/check-bundle-urls.mjs apps/client/dist",
+    "build:admin": "npm --workspace=@catbrasil/admin run build && node scripts/check-bundle-urls.mjs apps/admin/dist",
+    "build:all": "npm run build:client && npm run build:admin"
   },
   "devDependencies": {
-    "@sveltejs/vite-plugin-svelte": "^7.1.2",
+    "@playwright/test": "^1.62.1",
+    "@sveltejs/vite-plugin-svelte": "^5.0.3",
+    "playwright": "^1.62.1",
     "svelte": "^5.56.4",
-    "vite": "^8.1.1"
-  },
-  "dependencies": {
-    "socket.io-client": "^4.8.3"
+    "vite": "^6.2.0"
   }
 }

@@ -1,0 +1,14 @@
+[Unit]
+Description=Verify latest CatBrasil backup on independent recovery host
+Wants=network-online.target
+After=network-online.target docker.service
+
+[Service]
+Type=oneshot
+EnvironmentFile=/etc/catbrasil/restore-proof.env
+ExecStart=/usr/bin/python3 /opt/catbrasil/current/scripts/release/backup-automation.py restore-proof
+TimeoutStartSec=2h
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+

@@ -1,0 +1,152 @@
+# compose.prod.yml
+# Overlay de Produção para CatBrasil (Greenfield Cutover)
+#
+# AVISO CRÍTICO DE OPERAÇÃO:
+# NUNCA execute `docker compose up -d` ou `up -d --build` diretamente com este arquivo.
+# O deploy de produção exige inicialização sequencial estrita com aprovação obrigatória do portão
+# técnico de corte (preflight_cutover.py) entre as migrações e o início dos serviços de API.
+#
+# Procedimento de Verificação Segura (somente validação, nenhuma mutação):
+#   scripts/release/cutover_orchestrator.sh --validate-only
+#
+# O modo --execute NÃO é um comando manual de deploy: é o único caminho suportado de corte e
+# exige o Portão de Evidências P0.6 ANTES de qualquer mutação Docker — CUTOVER_OPERATOR +
+# CUTOVER_EVIDENCE_MANIFEST (assinatura OpenSSH detached do operador validada com
+# ssh-keygen -Y verify contra CUTOVER_ALLOWED_SIGNERS fora do repositório; cada item com
+# artefato real fora do repositório conferido por sha256) e portas 80/443 livres.
+# A assinatura comprova a identidade de aprovação do operador, não a verdade do conteúdo
+# das evidências.
+#
+# Regras de Segurança e Isolamento:
+# 1. Volume pgdata explicitamente mapeado para 'catbrasil_prod_pgdata',
+#    impedindo reuso ou anexação acidental do volume legado 'catbrasil_pgdata'
+#    ou do volume de staging 'catbrasil-staging_pgdata'.
+# 2. Rede isolada 'catbrasil_prod_net'.
+# 3. Porta do PostgreSQL não exposta no host (!override []).
+# 4. SUITPAY_LIVE_ENABLED explicitamente desabilitado ("false") até aprovação de P0.2 a P0.6.
+# 5. O preflight (scripts/release/preflight_cutover.py) com exit code 0 é pré-requisito
+#    absoluto para iniciar backend-api e backend-cron.
+# 6. Imagens imutáveis: 'build' do base é resetado e toda imagem exige digest @sha256
+#    (${VAR:?} vazio => o próprio compose recusa; formato inválido => o validador recusa).
+#    Nenhum build silencioso e nenhuma tag mutável é possível durante o corte.
+
+services:
+  postgres:
+    image: postgres:16-alpine@sha256:${POSTGRES_IMAGE_DIGEST:?Defina POSTGRES_IMAGE_DIGEST sha256 da imagem postgres}
+    environment:
+      POSTGRES_DB: ${DB_NAME:-catbrasil_prod}
+      POSTGRES_USER: ${DB_USER:-catadmin}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?Defina DB_PASSWORD de producao}
+      TZ: America/Sao_Paulo
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./docker/postgres/postgresql.conf:/etc/postgresql/postgresql.conf
+    ports: !override []
+    healthcheck:
+      test: ["CMD-SHELL", "psql -X -q -t -A -U \"$$POSTGRES_USER\" -d \"$$POSTGRES_DB\" -c 'SELECT 1' >/dev/null 2>&1"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  backend-migrate:
+    build: !reset null
+    image: ${PROD_BACKEND_MIGRATE_IMAGE:?Defina PROD_BACKEND_MIGRATE_IMAGE repo@sha256 64hex}
+
+  backend-api:
+    build: !reset null
+    image: ${PROD_BACKEND_API_IMAGE:?Defina PROD_BACKEND_API_IMAGE repo@sha256 64hex}
+    ports: !override []
+    environment:
+      APP_ENV: production
+      DATABASE_URL: ${DATABASE_URL:?Defina DATABASE_URL para catbrasil_prod}
+      SUITPAY_LIVE_ENABLED: "false"
+      TRUSTED_PROXY_CIDRS: 172.30.240.2/32
+
+  bootstrap-admin:
+    profiles: [bootstrap]
+    image: ${PROD_BACKEND_API_IMAGE:?Defina PROD_BACKEND_API_IMAGE repo@sha256 64hex}
+    entrypoint: ["/app/bootstrap-admin"]
+    restart: "no"
+    logging:
+      driver: "none"
+    environment:
+      APP_ENV: production
+      DATABASE_URL: ${DATABASE_URL:?Defina DATABASE_URL para catbrasil_prod}
+      ADMIN_SECRET_PIN: ${ADMIN_SECRET_PIN:?Defina ADMIN_SECRET_PIN}
+    networks: [catbrasil_net]
+
+  backend-cron:
+    build: !reset null
+    image: ${PROD_BACKEND_CRON_IMAGE:?Defina PROD_BACKEND_CRON_IMAGE repo@sha256 64hex}
+
+  app-client:
+    build: !reset null
+    image: ${PROD_APP_CLIENT_IMAGE:?Defina PROD_APP_CLIENT_IMAGE repo@sha256 64hex}
+
+  app-admin:
+    build: !reset null
+    image: ${PROD_APP_ADMIN_IMAGE:?Defina PROD_APP_ADMIN_IMAGE repo@sha256 64hex}
+
+  caddy:
+    image: caddy:2.8-alpine@sha256:${CADDY_IMAGE_DIGEST:?Defina CADDY_IMAGE_DIGEST sha256 da imagem caddy}
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:2018/healthz"]
+      interval: 10s
+      timeout: 3s
+      retries: 6
+    networks:
+      proxy_net:
+        ipv4_address: 172.30.240.2
+
+  prometheus:
+    image: prom/prometheus:v3.4.2@sha256:${PROMETHEUS_IMAGE_DIGEST:?Defina PROMETHEUS_IMAGE_DIGEST sha256 da imagem prometheus}
+    environment:
+      RECOVERY_NODE_EXPORTER_TARGET: ${RECOVERY_NODE_EXPORTER_TARGET:?Defina IP privado do host de recuperação e porta}
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:9090/-/ready"]
+      interval: 10s
+      timeout: 3s
+      retries: 6
+
+  node-exporter:
+    image: prom/node-exporter:v1.9.1@sha256:${NODE_EXPORTER_IMAGE_DIGEST:?Defina NODE_EXPORTER_IMAGE_DIGEST sha256 da imagem node-exporter}
+    ports: !override []
+
+  alertmanager:
+    image: prom/alertmanager:v0.28.1@sha256:${ALERTMANAGER_IMAGE_DIGEST:?Defina ALERTMANAGER_IMAGE_DIGEST sha256 da imagem alertmanager}
+    ports: !override []
+
+  alert-relay:
+    build: !reset null
+    image: ${PROD_ALERT_RELAY_IMAGE:?Defina PROD_ALERT_RELAY_IMAGE repo@sha256 64hex}
+    ports: !override []
+    environment:
+      APP_ENV: production
+      NTFY_URL: ${NTFY_URL:?Defina NTFY_URL HTTPS externo}
+      NTFY_TOKEN: ${NTFY_TOKEN:-}
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/readyz', timeout=2)"]
+      interval: 15s
+      timeout: 3s
+      retries: 6
+
+volumes:
+  pgdata:
+    name: catbrasil_prod_pgdata
+  caddy_data:
+    name: catbrasil_prod_caddy_data
+  caddy_config:
+    name: catbrasil_prod_caddy_config
+  prometheus_data:
+    name: catbrasil_prod_prometheus_data
+  alertmanager_data:
+    name: catbrasil_prod_alertmanager_data
+
+networks:
+  catbrasil_net:
+    name: catbrasil_prod_net
+  proxy_net:
+    name: catbrasil_prod_proxy_net
+    ipam:
+      config:
+        - subnet: 172.30.240.0/28

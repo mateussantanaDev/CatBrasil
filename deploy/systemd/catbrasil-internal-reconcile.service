@@ -1,0 +1,15 @@
+[Unit]
+Description=CatBrasil daily read-only production ledger reconciliation
+Wants=network-online.target
+After=network-online.target docker.service
+
+[Service]
+Type=oneshot
+EnvironmentFile=/etc/catbrasil/internal-reconcile.env
+ExecStart=/usr/bin/python3 /opt/catbrasil/current/scripts/release/daily-reconcile.py
+TimeoutStartSec=6min
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+StandardOutput=journal
+StandardError=journal

@@ -1,0 +1,10 @@
+[Unit]
+Description=Verify CatBrasil backup weekly on recovery host
+
+[Timer]
+OnCalendar=Sun *-*-* 04:30:00 UTC
+Persistent=true
+Unit=catbrasil-restore-proof.service
+
+[Install]
+WantedBy=timers.target
