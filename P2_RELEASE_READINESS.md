@@ -14,12 +14,13 @@ Atualizado em 20/10/2026. Este documento registra o que foi **executado** no sta
 | Alertas | Alertmanager entregou um alerta sintético ao relay e ao receptor descartável de staging. `promtool` aceitou 17 regras e a configuração do contêiner. |
 | Precisão monetária | Entradas JSON monetárias são validadas pelo lexema original e cálculos financeiros usam centavos inteiros dentro do limite `NUMERIC(15,2)`; testes de borda, SQL e concorrência passaram. Alguns DTOs e adaptadores ainda transportam `float64` depois da validação. |
 | Rotinas operacionais | Backup age em mount remoto verificado, restauração periódica em host separado e conciliação interna diária têm scripts, timers, métricas e testes. Nenhuma instalação de systemd foi feita neste Mac. |
+| CI remoto | O PR [#1](https://github.com/mateussantanaDev/CatBrasil/pull/1) aprovou os três jobs de backend, frontend e validação de release no commit `e5a2a57` (run `39531855839`). |
 
 ## Portões ainda pendentes no ambiente real
 
 1. **SuitPay oficial:** homologação no sandbox, webhooks reais, extrato oficial e evidência de conciliação externa. O usuário pediu para pular esta etapa por ora; `SUITPAY_LIVE_ENABLED=false` permanece obrigatório.
 2. **Infraestrutura externa:** provisionar host de produção, mount remoto de backup, host independente de recuperação, rede privada/VPN para suas métricas e destinatário HTTPS real de alertas; executar restauração e medir RPO/RTO nesses hosts.
 3. **SMS e identidade:** configurar o gateway HTTP próprio com entrega real, provar posse do número e executar revisão de identidade humana antes de qualquer movimentação real.
-4. **Release remoto:** publicar o commit, executar o CI no GitHub, fixar os digests das imagens construídas, assinar as evidências de corte e executar o orquestrador apenas quando os portões anteriores passarem.
+4. **Corte real:** aprovar e integrar o PR após revisão, construir/publicar imagens imutáveis com digests verificados, assinar as evidências de corte e executar o orquestrador apenas quando os portões anteriores passarem.
 
 Os testes locais com dados fictícios não demonstram custódia de dinheiro real nem prontidão regulatória/operacional do ambiente final.
