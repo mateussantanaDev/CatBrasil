@@ -32,9 +32,9 @@ scripts/release/cutover_orchestrator.sh --validate-only
 
 O corte, quando todos os portões de evidência estiverem aprovados, usa exclusivamente o orquestrador descrito em `FASE5_RELEASE.md`. A variável `SUITPAY_LIVE_ENABLED` permanece `false` até homologação e autorização separadas. O app bloqueia `PIX_MODE=simulated` em produção.
 
-`--profile observability` inicia Prometheus em `127.0.0.1:9090` (staging: `19090`), com retenção de sete dias. O Prometheus autentica o scrape em `/internal/metrics` com `OBSERVABILITY_TOKEN`; o Caddy devolve 404 para essa rota pública. Logs Docker rotacionam automaticamente em cinco arquivos de 10 MB por serviço principal. Consulte saúde por `/health` e `/ready`, logs por `docker compose logs`, e métricas pela interface local do Prometheus.
+`--profile observability` inicia Prometheus em `127.0.0.1:9090` (staging: `19090`), Alertmanager, relay e node exporter privados. O Prometheus retém sete dias de métricas e autentica o scrape em `/internal/metrics` com `OBSERVABILITY_TOKEN`; o Caddy devolve 404 para essa rota pública. O bind de métricas do host e o destino privado do host de recuperação estão em [prometheus/README.md](prometheus/README.md). Logs Docker rotacionam automaticamente em cinco arquivos de 10 MB por serviço principal. Consulte saúde por `/health` e `/ready`, logs por `docker compose logs`, e métricas pela interface local do Prometheus.
 
-SMS real exige um provedor ou hardware de telefonia e costuma ter custo por mensagem; o sandbox serve apenas para validação local. As regras Prometheus só notificam quando um receptor de alertas estiver configurado e sua entrega tiver sido testada.
+SMS real exige um provedor ou hardware de telefonia e costuma ter custo por mensagem; o sandbox serve apenas para validação local. O receptor descartável provou a entrega apenas em staging. Configure `NTFY_URL` HTTPS e teste o recebimento pelo plantão antes do corte.
 
 ## Validação do staging atual
 

@@ -2,7 +2,7 @@
 
 Estes comandos devem ser executados **em staging isolado**, com dados sintéticos e sem credenciais financeiras reais. O smoke padrão não altera dados. `--full-sandbox` cria um usuário com CPF matematicamente válido, nome e email sintéticos, registra identidade **pendente**, prova o bloqueio de PIX e ativa 2FA. `--pix-sandbox` só cria uma cobrança de R$ 1 no stub local depois de uma revisão explícita. Nenhum desses testes comprova identidade civil, liquidação ou saque na SuitPay real.
 
-> **Estado da validação:** O ensaio histórico do staging ficou na migração 8. O baseline corrente deve ser lido dos arquivos `backend/migrations/*.up.sql` e comparado ao banco pelo gate `scripts/release/validate_staging.py`; não aceite uma contagem copiada deste documento como prova. A restauração cifrada em PostgreSQL descartável foi provada localmente, mas a cópia fora do host, RPO/RTO, entrega de alertas, identidade/SMS reais e CI remoto ainda precisam de evidência. O corte real continua **BLOQUEADO**; a homologação oficial da SuitPay permanece uma dependência separada.
+> **Estado da validação em 20/10/2026:** O staging isolado foi reconstruído com migrações 1–14, smoke completo com stubs, backup age/restauração local e entrega de alerta sintético aprovados. O PR [#1](https://github.com/mateussantanaDev/CatBrasil/pull/1) passou nos três jobs do CI no commit `e5a2a57`. O gate `scripts/release/validate_staging.py` deve ser repetido no commit candidato. Cópia e restauração fora do host, RPO/RTO, entrega a destinatário real, identidade/SMS reais e homologação oficial SuitPay ainda precisam de evidência. O corte real continua **BLOQUEADO**.
 
 ---
 
@@ -33,7 +33,7 @@ A prontidão para o corte segue uma ordem rigorosa de dependências técnicas:
    - Scripts `scripts/release/backup.sh` e `scripts/release/restore-verify.sh` com cifragem obrigatória via `age` (sem persistência em plaintext em nenhum ambiente, inclusive staging).
    - Checksum SHA-256 gerado e validado antes da publicação do artefato de backup, com descarte de arquivos parciais/finais em caso de falha.
    - Restauração isolada com conferência de tabelas e sequência de migrações definidas em `restore-verify.sh`; a prova local descartável foi concluída, sem comprovar cópia externa.
-   - Regras locais do Prometheus validadas com `promtool`; entrega a destinatários externos ainda requer configuração e teste.
+   - Prometheus com 17 regras, Alertmanager e relay entregaram alerta sintético ao receptor descartável de staging; entrega a destinatário externo ainda requer configuração e teste.
    - Sem cópia e restauração fora do host, RPO/RTO medidos, imagens publicadas por digest nem prova operacional de identidade/SMS reais. Nenhum `--execute` foi feito.
 
 ---
@@ -257,7 +257,7 @@ O teste só faz `GET /ready`, até 4 req/s por 90 segundos (abaixo do limitador 
 
 No Prometheus local, confirme `up{job="catbrasil-api"}=1`, taxa de respostas 5xx, p95 de duração HTTP e crescimento de memória/conexões. Confira `docker compose ... logs --since=15m backend-api backend-cron postgres` sem tokens ou códigos. Faça ao menos um teste de API sem PostgreSQL: `/health` continua vivo, `/ready` vira 503, e após reconexão retorna 200. Refaça smoke e carga depois da recuperação. Monitore disco do volume PostgreSQL e espaço para backups, validade do TLS, fila/erros de SMS e PIX, e falhas de migração. Configure alertas externos ao host para indisponibilidade, erro 5xx, disco, backup atrasado e certificado.
 
-As regras em `docker/prometheus/alerts.yml` são **locais** e incluem disponibilidade, erros HTTP/gateway/webhook e atraso/falha de cron. Elas usam as métricas existentes da API e aparecem no Prometheus quando o perfil `observability` é iniciado. Sem receptor externo configurado e testado, uma regra disparada permanece apenas no Prometheus e não avisa o plantão. Antes do corte, valide as regras no Prometheus de staging e prove entrega fora deste host; acrescente sinais de disco, atraso de backup e expiração TLS com seus respectivos exporters.
+As 17 regras em `docker/prometheus/alerts.yml` incluem disponibilidade, erros HTTP/gateway/webhook, cron, backup, restauração e conciliação interna. Alertmanager encaminha ao relay privado; o receptor descartável de staging comprovou o caminho local. Produção exige `NTFY_URL` HTTPS real, teste de entrega a um plantonista e coleta das métricas do host de recuperação independente. Antes do corte, acrescente monitoramento de disco e expiração TLS no ambiente final.
 
 ---
 
