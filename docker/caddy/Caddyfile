@@ -1,0 +1,113 @@
+# ==============================================================================
+# Configuração Caddy Reverse Proxy com TLS Automático para VPS CatBrasil
+# ==============================================================================
+{
+    email {$ACME_EMAIL:admin@catbrasil.app}
+    admin off
+}
+
+# Endpoint de saúde interno ao contêiner; não é publicado pelo Compose.
+http://127.0.0.1:2018 {
+    respond /healthz 200
+}
+
+# ------------------------------------------------------------------------------
+# 1. Domínio Principal do App Cliente (Porta 3000 / 80 / 443)
+# ------------------------------------------------------------------------------
+{$CLIENT_DOMAIN:localhost} {
+    encode gzip zstd
+
+    handle /internal/* {
+        respond "Not found" 404
+    }
+
+    # Roteamento da API Backend e WebSocket
+    handle /api/* {
+        reverse_proxy api-proxy:8080 {
+            header_up Host {host}
+            header_up X-Real-IP {remote_host}
+            header_up X-Forwarded-For {remote_host}
+            header_up X-Forwarded-Proto {scheme}
+        }
+    }
+
+    handle /ws* {
+        reverse_proxy api-proxy:8080 {
+            header_up Host {host}
+            header_up X-Real-IP {remote_host}
+            header_up X-Forwarded-For {remote_host}
+            header_up X-Forwarded-Proto {scheme}
+        }
+    }
+
+    handle /health {
+        reverse_proxy api-proxy:8080
+    }
+
+    handle /ready {
+        reverse_proxy api-proxy:8080
+    }
+
+    # Roteamento dos Assets e SPA do Cliente
+    handle {
+        reverse_proxy app-client:80
+    }
+}
+
+# ------------------------------------------------------------------------------
+# 2. Subdomínio Exclusivo do App Gestão / ERP (Porta 3002)
+# ------------------------------------------------------------------------------
+{$ADMIN_DOMAIN:admin.localhost} {
+    encode gzip zstd
+
+    handle /internal/* {
+        respond "Not found" 404
+    }
+
+    # Roteamento da API Backend e WebSocket
+    handle /api/* {
+        reverse_proxy api-proxy:8080 {
+            header_up Host {host}
+            header_up X-Real-IP {remote_host}
+            header_up X-Forwarded-For {remote_host}
+            header_up X-Forwarded-Proto {scheme}
+        }
+    }
+
+    handle /ws* {
+        reverse_proxy api-proxy:8080 {
+            header_up Host {host}
+            header_up X-Real-IP {remote_host}
+            header_up X-Forwarded-For {remote_host}
+            header_up X-Forwarded-Proto {scheme}
+        }
+    }
+
+    handle /ready {
+        reverse_proxy api-proxy:8080
+    }
+
+    # Roteamento dos Assets e SPA do ERP
+    handle {
+        reverse_proxy app-admin:80
+    }
+}
+
+# ------------------------------------------------------------------------------
+# 3. Subdomínio Direto da API REST / WebSockets (Opcional)
+# ------------------------------------------------------------------------------
+{$API_DOMAIN:api.localhost} {
+    encode gzip zstd
+
+    handle /internal/* {
+        respond "Not found" 404
+    }
+    handle {
+        reverse_proxy api-proxy:8080 {
+            header_up Host {host}
+            header_up X-Real-IP {remote_host}
+            header_up X-Forwarded-For {remote_host}
+            header_up X-Forwarded-Proto {scheme}
+        }
+    }
+}

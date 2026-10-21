@@ -1,0 +1,12 @@
+[Unit]
+Description=Check CatBrasil internal ledger daily and retry failed audits
+
+[Timer]
+OnCalendar=*-*-* *:00,30:00 UTC
+OnBootSec=5min
+Persistent=true
+RandomizedDelaySec=0
+Unit=catbrasil-internal-reconcile.service
+
+[Install]
+WantedBy=timers.target

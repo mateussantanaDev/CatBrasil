@@ -1,0 +1,16 @@
+global:
+  resolve_timeout: 5m
+
+route:
+  receiver: catbrasil-relay
+  group_by: [alertname, severity]
+  group_wait: 15s
+  group_interval: 5m
+  repeat_interval: 4h
+
+receivers:
+  - name: catbrasil-relay
+    webhook_configs:
+      - url: http://alert-relay:8080/alertmanager
+        send_resolved: true
+        max_alerts: 50

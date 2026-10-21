@@ -1,0 +1,37 @@
+# ==============================================================================
+# Stage 1: Builder (Golang Alpine)
+# ==============================================================================
+FROM golang:alpine AS builder
+
+WORKDIR /app
+
+RUN apk add --no-cache git ca-certificates tzdata
+
+COPY go.mod go.sum ./
+RUN go mod download
+
+COPY . .
+
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
+    -ldflags="-s -w -extldflags '-static'" \
+    -o /app/bin/cron ./cmd/cron
+
+# ==============================================================================
+# Stage 2: Runtime Mínimo Cron
+# ==============================================================================
+FROM alpine:3.20
+
+WORKDIR /app
+
+RUN apk add --no-cache ca-certificates tzdata \
+    && addgroup -S appgroup && adduser -S appuser -G appgroup
+
+COPY --from=builder /app/bin/cron /app/cron
+
+RUN chown -R appuser:appgroup /app
+
+USER appuser
+
+ENV TZ=America/Sao_Paulo
+
+CMD ["/app/cron"]

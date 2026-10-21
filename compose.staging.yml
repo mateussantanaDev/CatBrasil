@@ -1,0 +1,141 @@
+# Use: docker compose -p catbrasil-staging --env-file .staging.env \
+#      -f docker-compose.yml -f compose.staging.yml up -d --build
+# O override exige Docker Compose 2.24.4+ para !override.
+services:
+  postgres:
+    ports: !override []
+
+  backend-api:
+    ports: !override []
+    environment:
+      APP_ENV: staging
+      PIX_MODE: suitpay
+      SMS_GATEWAY_URL: http://sms-sandbox:8080/send
+      PIX_SANDBOX_URL: http://pix-sandbox:8080/api/v1/gateway
+      TRUSTED_PROXY_CIDRS: 172.30.241.2/32
+    depends_on:
+      sms-sandbox:
+        condition: service_healthy
+      pix-sandbox:
+        condition: service_healthy
+    networks:
+      catbrasil_net: {}
+      proxy_net:
+        aliases: [api-proxy]
+        ipv4_address: 172.30.241.3
+
+  app-client:
+    ports: !override []
+
+  app-admin:
+    ports: !override []
+
+  prometheus:
+    ports: !override
+      - "127.0.0.1:${STAGING_PROMETHEUS_PORT:-19090}:9090"
+
+  node-exporter:
+    volumes: !override
+      - type: bind
+        source: /tmp/catbrasil-staging-textfile
+        target: /textfile
+        read_only: true
+        bind:
+          create_host_path: false
+
+  alertmanager:
+    ports: !override
+      - "127.0.0.1:${STAGING_ALERTMANAGER_PORT:-19093}:9093"
+
+  alert-relay:
+    environment:
+      APP_ENV: staging
+      NTFY_URL: http://alert-sink:8080/notify
+      NTFY_TOKEN: ""
+    depends_on:
+      alert-sink:
+        condition: service_healthy
+
+  alert-sink:
+    build:
+      context: ./docker/alert-sink
+    profiles: [observability]
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/health', timeout=2)"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+    networks: [catbrasil_net]
+
+  sms-sandbox:
+    build:
+      context: ./docker/sms-sandbox
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options: {max-size: "5m", max-file: "3"}
+    environment:
+      APP_ENV: staging
+      SMS_GATEWAY_TOKEN: ${SMS_GATEWAY_TOKEN:?Defina SMS_GATEWAY_TOKEN}
+      SMS_SANDBOX_INSPECT_TOKEN: ${SMS_SANDBOX_INSPECT_TOKEN:?Defina SMS_SANDBOX_INSPECT_TOKEN}
+    ports:
+      - "127.0.0.1:${SMS_SANDBOX_PORT:-18081}:8080"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/health', timeout=2)"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+    networks: [catbrasil_net]
+
+  pix-sandbox:
+    build:
+      context: ./docker/pix-sandbox
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options: {max-size: "5m", max-file: "3"}
+    environment:
+      APP_ENV: staging
+      PIX_SANDBOX_CLIENT_ID: ${PIX_SANDBOX_CLIENT_ID:?Defina PIX_SANDBOX_CLIENT_ID}
+      PIX_SANDBOX_CLIENT_SECRET: ${PIX_SANDBOX_CLIENT_SECRET:?Defina PIX_SANDBOX_CLIENT_SECRET}
+      PIX_SANDBOX_INSPECT_TOKEN: ${PIX_SANDBOX_INSPECT_TOKEN:?Defina PIX_SANDBOX_INSPECT_TOKEN}
+    ports:
+      - "127.0.0.1:${PIX_SANDBOX_PORT:-18082}:8080"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/health', timeout=2)"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+    networks: [catbrasil_net]
+
+  caddy:
+    ports: !override
+      - "127.0.0.1:${STAGING_HTTP_PORT:-8088}:80"
+    volumes:
+      - ./docker/caddy/Caddyfile.staging:/etc/caddy/Caddyfile:ro
+    networks:
+      proxy_net:
+        ipv4_address: 172.30.241.2
+
+volumes:
+  pgdata:
+    name: catbrasil-staging_pgdata
+  caddy_data:
+    name: catbrasil-staging_caddy_data
+  caddy_config:
+    name: catbrasil-staging_caddy_config
+  prometheus_data:
+    name: catbrasil-staging_prometheus_data
+  alertmanager_data:
+    name: catbrasil-staging_alertmanager_data
+
+networks:
+  catbrasil_net:
+    external: true
+    name: catbrasil-staging_net
+  proxy_net:
+    name: catbrasil-staging_proxy_net
+    ipam:
+      config:
+        - subnet: 172.30.241.0/28

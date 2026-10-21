@@ -1,0 +1,126 @@
+name: CI - CatBrasil
+
+on:
+  push:
+    branches:
+      - main
+      - master
+  pull_request:
+    branches:
+      - main
+      - master
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend-test:
+    name: Backend Go (Integration Gate)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.25.0'
+          cache-dependency-path: backend/go.sum
+
+      - name: Verify Go dependencies
+        run: |
+          cd backend
+          go mod verify
+
+      - name: Run Integration Test Gate (Ephemeral Docker PostgreSQL)
+        run: |
+          chmod +x scripts/test/integration.sh
+          ./scripts/test/integration.sh
+
+  frontend-build:
+    name: Frontend Monorepo & Container Health
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          cd frontend
+          npm ci
+
+      - name: Build Client SPA
+        run: |
+          cd frontend
+          npm run build:client
+
+      - name: Build Admin SPA
+        run: |
+          cd frontend
+          npm run build:admin
+
+      - name: Run Frontend JS Contract Tests
+        run: |
+          cd frontend
+          npm --workspace=@catbrasil/client run test:realtime
+          cd ..
+          node tests/test_erp_frontend_auth.mjs
+
+      - name: Frontend Docker Healthcheck Smoke Test
+        run: |
+          python3 scripts/release/verify_frontend_health.py --build
+
+  release-validation:
+    name: Release & Architecture Validation
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Validate Prometheus Alert Rules with Promtool
+        run: |
+          docker run --rm --entrypoint promtool -v "$PWD/docker/prometheus/alerts.yml:/etc/prometheus/alerts.yml:ro" prom/prometheus:v3.4.2 check rules /etc/prometheus/alerts.yml
+
+      - name: Validate Alertmanager Receiver
+        run: |
+          docker run --rm --entrypoint amtool -v "$PWD/docker/alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro" prom/alertmanager:v0.28.1 check-config /etc/alertmanager/alertmanager.yml
+
+      - name: Run Release Architecture & Compose Integrity Unit Tests
+        run: |
+          python3 -m unittest tests/test_validate_suitpay_sandbox_compose.py
+          python3 -m unittest tests/test_observability_rules.py
+          python3 -m unittest tests/test_preflight_cutover.py tests/test_cutover_orchestrator.py
+          python3 -m unittest tests/test_ephemeral_cutover_proof.py
+          python3 -m unittest tests/test_backup_restore.py tests/test_reconcile.py
+          python3 -m unittest tests/test_backup_automation.py tests/test_validate_staging.py
+          python3 -m unittest tests/test_provider_reconcile.py
+          python3 -m unittest tests/test_daily_reconcile.py
+          (cd docker/alert-relay && python3 -m unittest test_server.py)
+

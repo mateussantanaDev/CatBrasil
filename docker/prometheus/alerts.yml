@@ -1,0 +1,158 @@
+groups:
+  - name: catbrasil-alerts
+    rules:
+      - alert: CatBrasilAPIDown
+        expr: up{job="catbrasil-api"} == 0 or absent(up{job="catbrasil-api"}) or catbrasil_up{job="catbrasil-api"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "CatBrasil API process is down or unreachable"
+          description: "Prometheus cannot scrape the API, or the API process reports down, for more than 1 minute."
+
+      - alert: CatBrasilSustained5xx
+        expr: sum(rate(catbrasil_http_requests_total{status=~"5.."}[5m])) / sum(rate(catbrasil_http_requests_total[5m])) > 0.05
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "CatBrasil API sustained high 5xx error rate"
+          description: "Over 5% of HTTP responses are 5xx server errors for more than 5 minutes."
+
+      - alert: CatBrasilHighP95Latency
+        expr: histogram_quantile(0.95, sum(rate(catbrasil_http_request_duration_seconds_bucket[5m])) by (le)) > 1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "CatBrasil API p95 latency exceeds 1 second"
+          description: "95th percentile request latency exceeds 1 second for more than 5 minutes."
+
+      - alert: CatBrasilWebhookSustained5xx
+        expr: sum(rate(catbrasil_http_requests_total{route=~".*webhook.*",status=~"5.."}[5m])) / sum(rate(catbrasil_http_requests_total{route=~".*webhook.*"}[5m])) > 0.05
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "CatBrasil Webhook sustained high 5xx error rate"
+          description: "Over 5% of webhook HTTP responses are 5xx server errors for more than 2 minutes."
+
+      - alert: CatBrasilGatewaySustained5xx
+        expr: sum(rate(catbrasil_http_requests_total{route=~".*(pix|financial|withdraw).*",status=~"5.."}[5m])) / sum(rate(catbrasil_http_requests_total{route=~".*(pix|financial|withdraw).*"}[5m])) > 0.05
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "CatBrasil Gateway sustained high 5xx error rate"
+          description: "Over 5% of gateway and financial HTTP responses are 5xx server errors for more than 2 minutes."
+
+      - alert: CatBrasilCronDailyDelayed
+        expr: catbrasil_cron_pending_daily_periods > 0 or (catbrasil_cron_last_success_timestamp_seconds{job="daily_roulette_reset"} > 0 and (time() - catbrasil_cron_last_success_timestamp_seconds{job="daily_roulette_reset"}) > 90000)
+        for: 15m
+        labels:
+          severity: critical
+        annotations:
+          summary: "CatBrasil daily roulette reset cron is delayed"
+          description: "Daily roulette reset is overdue for the current period or has not completed in over 25 hours."
+
+      - alert: CatBrasilCronWeeklyDelayed
+        expr: catbrasil_cron_pending_weekly_periods > 0
+        for: 60m
+        labels:
+          severity: critical
+        annotations:
+          summary: "CatBrasil weekly season close cron is delayed"
+          description: "One or more previous weekly seasons remain pending closure for more than 60 minutes."
+
+      - alert: CatBrasilCronFailureDetected
+        expr: catbrasil_cron_recent_failures_total > 0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "CatBrasil cron job failure detected"
+          description: "One or more cron executions failed within the last 24 hours."
+
+      - alert: CatBrasilCronMetricsUnavailable
+        expr: catbrasil_cron_metrics_available == 0 or absent(catbrasil_cron_metrics_available)
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "CatBrasil cron metrics collection is failing"
+          description: "Cron observability metrics cannot be retrieved from the database or the callback is failing for more than 5 minutes."
+
+      - alert: CatBrasilHostTextfileUnavailable
+        expr: up{job="catbrasil-host"} != 1 or absent(up{job="catbrasil-host"}) or node_textfile_scrape_error{job="catbrasil-host"} != 0
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "CatBrasil host operational metrics unavailable"
+          description: "The host textfile collector is unavailable or has invalid files."
+
+      - alert: CatBrasilBackupFailed
+        expr: catbrasil_backup_last_run_success{job="catbrasil-host"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "CatBrasil encrypted backup failed"
+          description: "The latest scheduled database backup did not finish successfully."
+
+      - alert: CatBrasilBackupMissingOrStale
+        expr: absent(catbrasil_backup_last_success_timestamp_seconds{job="catbrasil-host"}) or (time() - catbrasil_backup_last_success_timestamp_seconds{job="catbrasil-host"} > 4200)
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "CatBrasil backup proof is missing or stale"
+          description: "No successful encrypted backup has been observed in the last 70 minutes."
+
+      - alert: CatBrasilRecoveryMetricsUnavailable
+        expr: up{job="catbrasil-recovery"} != 1 or absent(up{job="catbrasil-recovery"}) or node_textfile_scrape_error{job="catbrasil-recovery"} != 0
+        for: 10m
+        labels:
+          severity: critical
+        annotations:
+          summary: "CatBrasil independent recovery host metrics unavailable"
+          description: "The independent recovery host textfile collector is unreachable or invalid."
+
+      - alert: CatBrasilRestoreProofFailed
+        expr: catbrasil_restore_proof_last_run_success{job="catbrasil-recovery"} == 0
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "CatBrasil restore proof failed"
+          description: "The latest independent restore verification failed."
+
+      - alert: CatBrasilRestoreProofMissingOrStale
+        expr: absent(catbrasil_restore_proof_last_success_timestamp_seconds{job="catbrasil-recovery"}) or (time() - catbrasil_restore_proof_last_success_timestamp_seconds{job="catbrasil-recovery"} > 691200)
+        for: 10m
+        labels:
+          severity: critical
+        annotations:
+          summary: "CatBrasil restore proof is missing or stale"
+          description: "No successful restore verification has been observed in the last eight days."
+
+      - alert: CatBrasilInternalReconcileFailed
+        expr: catbrasil_internal_reconcile_last_run_success{job="catbrasil-host"} == 0
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "CatBrasil daily internal reconciliation failed"
+          description: "The most recent read-only ledger reconciliation failed or found a divergence."
+
+      - alert: CatBrasilInternalReconcileMissingOrStale
+        expr: absent(catbrasil_internal_reconcile_last_success_timestamp_seconds{job="catbrasil-host"}) or (time() - catbrasil_internal_reconcile_last_success_timestamp_seconds{job="catbrasil-host"} > 90000)
+        for: 10m
+        labels:
+          severity: critical
+        annotations:
+          summary: "CatBrasil daily internal reconciliation is missing or stale"
+          description: "No successful internal reconciliation has been observed in the last 25 hours."
+
+
+

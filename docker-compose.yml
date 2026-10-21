@@ -1,0 +1,343 @@
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "5"
+
+services:
+  # ----------------------------------------------------------------------------
+  # 1. Banco de Dados Relacional PostgreSQL 16
+  # Perfil conservador para VPS pequena; ajuste depois de medir carga real.
+  # ----------------------------------------------------------------------------
+  postgres:
+    image: postgres:16-alpine
+    restart: always
+    logging: *default-logging
+    environment:
+      POSTGRES_DB: ${DB_NAME:-catbrasil}
+      POSTGRES_USER: ${DB_USER:-catadmin}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?Defina DB_PASSWORD}
+      TZ: America/Sao_Paulo
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./docker/postgres/postgresql.conf:/etc/postgresql/postgresql.conf
+    command: postgres -c config_file=/etc/postgresql/postgresql.conf
+    ports:
+      - "127.0.0.1:${DB_PORT:-5432}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "psql -X -q -t -A -U \"$$POSTGRES_USER\" -d \"$$POSTGRES_DB\" -c 'SELECT 1' >/dev/null 2>&1"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          memory: 1024M
+        reservations:
+          memory: 512M
+    networks:
+      - catbrasil_net
+
+  # ----------------------------------------------------------------------------
+  # 2. Backend API em Golang (REST Engine + WebSocket Hub)
+  # API, migrações e worker usam a mesma rede privada.
+  # ----------------------------------------------------------------------------
+  backend-migrate:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    restart: "no"
+    logging: *default-logging
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: ${DATABASE_URL:?Defina DATABASE_URL para o host postgres}
+    command: ["/app/migrate", "up"]
+    networks:
+      - catbrasil_net
+
+  backend-api:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    restart: always
+    logging: *default-logging
+    depends_on:
+      postgres:
+        condition: service_healthy
+      backend-migrate:
+        condition: service_completed_successfully
+    environment:
+      PORT: 8080
+      DATABASE_URL: ${DATABASE_URL:?Defina DATABASE_URL para o host postgres}
+      JWT_SECRET: ${JWT_SECRET:?Defina JWT_SECRET}
+      APP_ENV: ${APP_ENV:?Defina APP_ENV}
+      PIX_MODE: ${PIX_MODE:?Defina PIX_MODE}
+      PIX_WEBHOOK_SECRET: ${PIX_WEBHOOK_SECRET:?Defina PIX_WEBHOOK_SECRET}
+      ADMIN_SECRET_PIN: ${ADMIN_SECRET_PIN:?Defina ADMIN_SECRET_PIN}
+      SMS_GATEWAY_URL: ${SMS_GATEWAY_URL:-}
+      SMS_GATEWAY_TOKEN: ${SMS_GATEWAY_TOKEN:-}
+      SMS_CODE_SECRET: ${SMS_CODE_SECRET:-}
+      IDENTITY_SECRET: ${IDENTITY_SECRET:?Defina IDENTITY_SECRET}
+      SUITPAY_LIVE_ENABLED: ${SUITPAY_LIVE_ENABLED:-false}
+      OBSERVABILITY_TOKEN: ${OBSERVABILITY_TOKEN:-}
+      PIX_SANDBOX_URL: ${PIX_SANDBOX_URL:-}
+      GIN_MODE: release
+      GOMAXPROCS: ${GOMAXPROCS:-2}
+      TZ: America/Sao_Paulo
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:?Defina CORS_ALLOWED_ORIGINS}
+      TRUSTED_PROXY_CIDRS: ${TRUSTED_PROXY_CIDRS:-}
+    ports:
+      - "127.0.0.1:${API_PORT:-8080}:8080"
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://127.0.0.1:8080/ready"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          memory: 768M
+    networks:
+      catbrasil_net: {}
+      proxy_net:
+        aliases: [api-proxy]
+
+  # ----------------------------------------------------------------------------
+  # 3. Backend Cron Worker em Golang (Agendador de Corrida & Expiração 10 min)
+  # ----------------------------------------------------------------------------
+  backend-cron:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.cron
+    restart: always
+    logging: *default-logging
+    depends_on:
+      postgres:
+        condition: service_healthy
+      backend-migrate:
+        condition: service_completed_successfully
+    environment:
+      DATABASE_URL: ${DATABASE_URL:?Defina DATABASE_URL para o host postgres}
+      TZ: America/Sao_Paulo
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+    networks:
+      - catbrasil_net
+
+  # ----------------------------------------------------------------------------
+  # 4. Frontend App Cliente (Svelte 5 - Porta 3000 / Nginx Alpine)
+  # ----------------------------------------------------------------------------
+  app-client:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile.client
+    restart: always
+    logging: *default-logging
+    depends_on:
+      backend-api:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:${CLIENT_PORT:-3000}:80"
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://127.0.0.1/healthz"]
+      interval: 15s
+      timeout: 3s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+    networks:
+      - catbrasil_net
+
+  # ----------------------------------------------------------------------------
+  # 5. Frontend App Gestão / ERP (Svelte 5 - Porta 3002 / Nginx Alpine)
+  # ----------------------------------------------------------------------------
+  app-admin:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile.admin
+    restart: always
+    logging: *default-logging
+    depends_on:
+      backend-api:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:${ADMIN_PORT:-3002}:80"
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://127.0.0.1/healthz"]
+      interval: 15s
+      timeout: 3s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+    networks:
+      - catbrasil_net
+
+  # ----------------------------------------------------------------------------
+  # 6. Caddy Reverse Proxy & TLS Automático (Opcional para Produção)
+  # ----------------------------------------------------------------------------
+  caddy:
+    image: caddy:2.8-alpine
+    restart: always
+    logging: *default-logging
+    depends_on:
+      backend-api:
+        condition: service_healthy
+      app-client:
+        condition: service_healthy
+      app-admin:
+        condition: service_healthy
+    ports:
+      - "${HTTP_BIND_ADDRESS:-0.0.0.0}:${HTTP_PORT:-80}:80"
+      - "${HTTPS_BIND_ADDRESS:-0.0.0.0}:${HTTPS_PORT:-443}:443"
+    environment:
+      CLIENT_DOMAIN: ${CLIENT_DOMAIN:?Defina CLIENT_DOMAIN}
+      ADMIN_DOMAIN: ${ADMIN_DOMAIN:?Defina ADMIN_DOMAIN}
+      API_DOMAIN: ${API_DOMAIN:?Defina API_DOMAIN}
+      ACME_EMAIL: ${ACME_EMAIL:?Defina ACME_EMAIL}
+    volumes:
+      - ./docker/caddy/Caddyfile:/etc/caddy/Caddyfile
+      - caddy_data:/data
+      - caddy_config:/config
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+    networks:
+      - catbrasil_net
+      - proxy_net
+
+  # Ativado com --profile observability. Interface acessível apenas no host.
+  prometheus:
+    image: prom/prometheus:v3.4.2
+    profiles: [observability]
+    restart: unless-stopped
+    logging: *default-logging
+    environment:
+      OBSERVABILITY_TOKEN: ${OBSERVABILITY_TOKEN:-}
+      RECOVERY_NODE_EXPORTER_TARGET: ${RECOVERY_NODE_EXPORTER_TARGET:-}
+    entrypoint: ["/bin/sh", "/etc/prometheus/start.sh"]
+    volumes:
+      - ./docker/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./docker/prometheus/alerts.yml:/etc/prometheus/alerts.yml:ro
+      - ./docker/prometheus/start.sh:/etc/prometheus/start.sh:ro
+      - prometheus_data:/prometheus
+    ports:
+      - "127.0.0.1:${PROMETHEUS_PORT:-9090}:9090"
+    depends_on:
+      backend-api:
+        condition: service_healthy
+      alertmanager:
+        condition: service_healthy
+      node-exporter:
+        condition: service_started
+    deploy:
+      resources:
+        limits:
+          memory: 384M
+    networks:
+      - catbrasil_net
+
+  # Reads only host-generated, non-sensitive textfile metrics. No host port is published.
+  node-exporter:
+    image: prom/node-exporter:v1.9.1@sha256:d00a542e409ee618a4edc67da14dd48c5da66726bbd5537ab2af9c1dfc442c8a
+    profiles: [observability]
+    restart: unless-stopped
+    logging: *default-logging
+    user: "0:0" # systemd writers use 0600; only the read-only textfile directory is mounted.
+    read_only: true
+    security_opt: [no-new-privileges:true]
+    cap_drop: [ALL]
+    command:
+      - --collector.disable-defaults
+      - --collector.textfile
+      - --collector.textfile.directory=/textfile
+      - --web.listen-address=:9100
+    volumes:
+      - type: bind
+        source: /var/lib/node_exporter/textfile_collector
+        target: /textfile
+        read_only: true
+        bind:
+          create_host_path: false
+    deploy:
+      resources:
+        limits:
+          memory: 96M
+    networks:
+      - catbrasil_net
+
+  alertmanager:
+    image: prom/alertmanager:v0.28.1
+    profiles: [observability]
+    restart: unless-stopped
+    logging: *default-logging
+    command: ["--config.file=/etc/alertmanager/alertmanager.yml", "--storage.path=/alertmanager"]
+    volumes:
+      - ./docker/alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+      - alertmanager_data:/alertmanager
+    ports:
+      - "127.0.0.1:${ALERTMANAGER_PORT:-9093}:9093"
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+    depends_on:
+      alert-relay:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:9093/-/ready"]
+      interval: 10s
+      timeout: 3s
+      retries: 6
+    networks:
+      - catbrasil_net
+
+  alert-relay:
+    build:
+      context: ./docker/alert-relay
+    profiles: [observability]
+    restart: unless-stopped
+    logging: *default-logging
+    environment:
+      APP_ENV: ${APP_ENV:?Defina APP_ENV}
+      NTFY_URL: ${NTFY_URL:-}
+      NTFY_TOKEN: ${NTFY_TOKEN:-}
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/readyz', timeout=2)"]
+      interval: 10s
+      timeout: 3s
+      retries: 6
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+    networks:
+      - catbrasil_net
+
+volumes:
+  pgdata:
+    name: catbrasil_pgdata
+  caddy_data:
+    name: catbrasil_caddy_data
+  caddy_config:
+    name: catbrasil_caddy_config
+  prometheus_data:
+    name: catbrasil_prometheus_data
+  alertmanager_data:
+    name: catbrasil_alertmanager_data
+
+networks:
+  catbrasil_net:
+    name: catbrasil_net
+    driver: bridge
+  proxy_net:
+    name: catbrasil_proxy_net
+    driver: bridge

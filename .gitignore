@@ -1,16 +1,28 @@
 # Dependencies
 node_modules/
+node_modules
 **/node_modules/
+__pycache__/
+*.pyc
 
 # Build and Output
 dist/
 **/dist/
 build/
 **/build/
+bin/
+**/bin/
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
 *.log
+scripts/release/reports/
 
 # Environment variables & secrets
 .env
+.env.staging
 *.env
 **/.env
 **/*.env
