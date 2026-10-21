@@ -612,6 +612,15 @@ class TestImmutableImagePinning(unittest.TestCase):
         self.assertTrue(any("node-exporter: mount textfile" in e for e in errors))
         self.assertTrue(any("RECOVERY_NODE_EXPORTER_TARGET deve ser IPv4 privado:porta" in e for e in errors))
 
+        # Some Compose releases omit the explicit false field in rendered JSON.
+        clean = self._payload()
+        clean["services"]["node-exporter"]["volumes"][0]["bind"] = {}
+        self.assertFalse(any("node-exporter: mount textfile" in e
+                             for e in validate_compose_config.validate_config(clean)))
+        clean["services"]["node-exporter"]["volumes"][0]["bind"] = {"create_host_path": True}
+        self.assertTrue(any("node-exporter: mount textfile" in e
+                            for e in validate_compose_config.validate_config(clean)))
+
     def test_live_flag_requires_literal_lowercase_false(self):
         for value in (False, "FALSE", " false "):
             with self.subTest(value=value):

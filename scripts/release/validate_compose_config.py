@@ -270,8 +270,10 @@ def validate_config(data: dict) -> list:
         errors.append("node-exporter: portas publicadas são proibidas")
     textfile_mounts = [mount for mount in node.get("volumes", []) if isinstance(mount, dict) and
                        mount.get("type") == "bind" and mount.get("target") == "/textfile"]
+    # Older Compose releases omit the explicit false value from rendered JSON.
+    # The cutover separately checks that the host directory already exists before any Docker mutation.
     if len(textfile_mounts) != 1 or textfile_mounts[0].get("source") != "/var/lib/node_exporter/textfile_collector" or \
-            not textfile_mounts[0].get("read_only") or textfile_mounts[0].get("bind", {}).get("create_host_path") is not False:
+            not textfile_mounts[0].get("read_only") or textfile_mounts[0].get("bind", {}).get("create_host_path", False) is not False:
         errors.append("node-exporter: mount textfile deve ser bind somente leitura, sem criar diretório")
     prometheus_env = services.get("prometheus", {}).get("environment", {})
     recovery_target = prometheus_env.get("RECOVERY_NODE_EXPORTER_TARGET") if isinstance(prometheus_env, dict) else None
